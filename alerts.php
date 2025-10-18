@@ -7,8 +7,7 @@ $database = new Database();
 $db = $database->getConnection();
 $entity = new Entity($db);
 
-// Get all entities and check for inactivity (limited for performance)
-$allEntities = $entity->getAll(200, 0); // Limit to 200 for performance
+$allEntities = $entity->getAll(200, 0);
 
 $alerts = [];
 foreach ($allEntities as $e) {
@@ -27,7 +26,6 @@ foreach ($allEntities as $e) {
     }
 }
 
-// Helper function for time ago
 function timeAgo($datetime) {
     $time = strtotime($datetime);
     $now = time();
@@ -58,7 +56,6 @@ function timeAgo($datetime) {
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">Security Alerts</h1>
@@ -69,7 +66,6 @@ function timeAgo($datetime) {
             </a>
         </div>
 
-        <!-- Alerts Summary -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex items-center justify-between">
                 <div>
@@ -85,7 +81,6 @@ function timeAgo($datetime) {
             </div>
         </div>
 
-        <!-- Alerts List -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <?php if(count($alerts) > 0): ?>
             <div class="space-y-4">

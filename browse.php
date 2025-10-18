@@ -7,7 +7,6 @@ $database = new Database();
 $db = $database->getConnection();
 $entity = new Entity($db);
 
-// Pagination
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 50;
 $offset = ($page - 1) * $limit;
@@ -37,7 +36,6 @@ $totalPages = ceil($totalEntities / $limit);
             </a>
         </div>
 
-        <!-- Entities Table -->
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -55,18 +53,21 @@ $totalPages = ceil($totalEntities / $limit);
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900"><?= htmlspecialchars($entity_item['name']) ?></div>
-                                <div class="text-sm text-gray-500"><?= $entity_item['entity_id'] ?></div>
+                                <div class="text-sm text-gray-500">ID: <?= $entity_item['entity_id'] ?></div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                    <?= $entity_item['role'] == 'student' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' ?>">
+                                    <?= $entity_item['role'] == 'student' ? 'bg-green-100 text-green-800' : 
+                                       ($entity_item['role'] == 'faculty' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800') ?>">
                                     <?= ucfirst($entity_item['role']) ?>
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= $entity_item['department'] ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= $entity_item['email'] ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= htmlspecialchars($entity_item['department']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?= htmlspecialchars($entity_item['email']) ?></td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <a href="entity.php?id=<?= $entity_item['entity_id'] ?>" class="text-blue-600 hover:text-blue-900">View Profile</a>
+                                <a href="entity.php?id=<?= $entity_item['entity_id'] ?>" class="text-blue-600 hover:text-blue-900 transition-colors">
+                                    View Details
+                                </a>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -75,25 +76,33 @@ $totalPages = ceil($totalEntities / $limit);
             </div>
         </div>
 
-        <!-- Pagination -->
         <?php if($totalPages > 1): ?>
         <div class="mt-6 flex items-center justify-between">
             <div class="text-sm text-gray-700">
-                Showing <?= $offset + 1 ?> to <?= min($offset + $limit, $totalEntities) ?> of <?= number_format($totalEntities) ?> results
+                Page <?= $page ?> of <?= $totalPages ?> • 
+                Showing <?= $offset + 1 ?>-<?= min($offset + $limit, $totalEntities) ?> of <?= number_format($totalEntities) ?> entities
             </div>
             <div class="flex space-x-2">
                 <?php if($page > 1): ?>
-                <a href="?page=<?= $page - 1 ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Previous
+                <a href="?page=<?= $page - 1 ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-chevron-left mr-1"></i>Previous
                 </a>
                 <?php endif; ?>
                 
                 <?php if($page < $totalPages): ?>
-                <a href="?page=<?= $page + 1 ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Next
+                <a href="?page=<?= $page + 1 ?>" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                    Next<i class="fas fa-chevron-right ml-1"></i>
                 </a>
                 <?php endif; ?>
             </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if(empty($entities)): ?>
+        <div class="bg-white rounded-lg shadow-md p-8 text-center mt-6">
+            <i class="fas fa-search text-4xl text-gray-400 mb-4"></i>
+            <h3 class="text-lg font-medium text-gray-900 mb-2">No Entities Found</h3>
+            <p class="text-gray-600">There are no entities to display at this time.</p>
         </div>
         <?php endif; ?>
     </div>

@@ -7,10 +7,7 @@ $database = new Database();
 $db = $database->getConnection();
 $entity = new Entity($db);
 
-// Get dashboard stats (simplified for performance)
 $stats = $entity->getDashboardStats();
-
-// Get recent entities (limited for performance)
 $recentEntities = $entity->getAll(10, 0);
 ?>
 <!DOCTYPE html>
@@ -24,13 +21,11 @@ $recentEntities = $entity->getAll(10, 0);
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <h1 class="text-3xl font-bold text-gray-800 mb-2">Campus Entity Resolution System</h1>
             <p class="text-gray-600">Cross-source entity tracking and security monitoring</p>
         </div>
 
-        <!-- Stats -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
             <div class="bg-white rounded-lg shadow p-6">
                 <div class="flex items-center">
@@ -50,7 +45,7 @@ $recentEntities = $entity->getAll(10, 0);
                         <i class="fas fa-user-check text-green-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Active (7 days)</h3>
+                        <h3 class="text-sm font-medium text-gray-500">Active Today</h3>
                         <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['active_today']) ?></p>
                     </div>
                 </div>
@@ -62,7 +57,7 @@ $recentEntities = $entity->getAll(10, 0);
                         <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
                     </div>
                     <div class="ml-4">
-                        <h3 class="text-sm font-medium text-gray-500">Potentially Inactive</h3>
+                        <h3 class="text-sm font-medium text-gray-500">Inactive Alerts</h3>
                         <p class="text-2xl font-bold text-gray-900"><?= number_format($stats['inactive_alerts']) ?></p>
                     </div>
                 </div>
@@ -81,9 +76,8 @@ $recentEntities = $entity->getAll(10, 0);
             </div>
         </div>
 
-        <!-- Search Section -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Entity Search</h2>
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Find Entities</h2>
             <form action="search.php" method="GET" class="flex gap-4">
                 <div class="flex-1">
                     <input type="text" name="q" placeholder="Search by ID, name, email, card, device..." 
@@ -102,13 +96,12 @@ $recentEntities = $entity->getAll(10, 0);
             </form>
         </div>
 
-        <!-- Quick Actions -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <a href="alerts.php" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <a href="browse.php" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-800">View All Entities</h3>
-                        <p class="text-gray-600 mt-1">Browse all <?= number_format($stats['total_entities']) ?> entities</p>
+                        <h3 class="text-lg font-semibold text-gray-800">Browse All Entities</h3>
+                        <p class="text-gray-600 mt-1">View and manage all campus entities</p>
                     </div>
                     <div class="text-blue-600">
                         <i class="fas fa-list text-2xl"></i>

@@ -26,7 +26,6 @@ if (!empty($query)) {
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">Entity Search</h1>
@@ -37,7 +36,6 @@ if (!empty($query)) {
             </a>
         </div>
 
-        <!-- Search Form -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <form action="search.php" method="GET" class="flex gap-4">
                 <div class="flex-1">
@@ -58,7 +56,6 @@ if (!empty($query)) {
             </form>
         </div>
 
-        <!-- Results -->
         <?php if (!empty($query)): ?>
         <div class="bg-white rounded-lg shadow-md p-6">
             <h2 class="text-xl font-bold text-gray-800 mb-4">

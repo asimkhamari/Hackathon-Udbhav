@@ -1,4 +1,3 @@
-# --- 1. Import Your Tools ---------------------------------------------------
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold, cross_val_score
@@ -9,46 +8,32 @@ import shap
 from sqlalchemy import create_engine, text, inspect
 from pathlib import Path
 import numpy as np
-import joblib  # <-- ADDED: For saving/loading the model
-from datetime import datetime # <-- ADDED: For handling user date input
-import json # <-- ADDED: For saving the column list
+import joblib
+from datetime import datetime
+import json
 import sys
 import argparse
 
-# --- 2. Define Project Constants & Configuration ----------------------------
-# --- FILL IN YOUR DATABASE DETAILS HERE ---
-DB_USER = "root"        # Your database username (e.g., "root")
-DB_PASSWORD = ""      # Your database password
-DB_HOST = "localhost"         # Where the database is running
-DB_PORT = "3306"              # The port for the database
-DB_NAME = "campus_entity_system"     # The database name from your SQL file
+DB_USER = "root"
+DB_PASSWORD = ""
+DB_HOST = "localhost"
+DB_PORT = "3306"
+DB_NAME = "campus_entity_system"
 
-# Configurable table/column names to match campus_entity_system.sql
-# Update these if your SQL file uses different names.
-SWIPES_TABLE = "card_swipes"   # table that stores swipe events / location events (from campus_entity_system.sql)
-PROFILES_TABLE = "entities"    # table that stores profile/entity information (called `entities` in the SQL dump)
-# Columns: swipes table has card_id but not entity_id in this dump; entities table stores entity_id, card_id, role, department
-SWIPES_ENTITY_COL = "entity_id"  # may not exist in swipes table; inspector will detect
-PROFILES_ENTITY_COL = "entity_id" # column in entities table for entity id
-SWIPES_CARD_COL = "card_id"       # card id column in swipes table
-PROFILES_CARD_COL = "card_id"     # card id column in entities table
+SWIPES_TABLE = "card_swipes"
+PROFILES_TABLE = "entities"
+SWIPES_ENTITY_COL = "entity_id"
+PROFILES_ENTITY_COL = "entity_id"
+SWIPES_CARD_COL = "card_id"
+PROFILES_CARD_COL = "card_id"
 
-# Define the target and the primary feature column
 TARGET_COLUMN = "location_id"
 FEATURE_COLUMN = "timestamp"
 
-# --- NEW: Define filenames for saved model and columns ---
 MODEL_PATH = Path("trained_location_model.joblib")
 COLUMNS_PATH = Path("model_feature_columns.json")
 
-
-# --- 3. Define Helper & Main Functions --------------------------------------
-
-# (run_validation_checks function is unchanged)
 def run_validation_checks(df: pd.DataFrame):
-    """
-    Runs a series of data validation checks on the provided DataFrame.
-    """
     if df is None or df.empty:
         print("DataFrame is empty. Skipping validation checks.")
         return
@@ -59,15 +44,9 @@ def run_validation_checks(df: pd.DataFrame):
         print(f"  [CHECK] FAIL: Found {total_nulls} null values in the dataset!")
     else:
         print("  [CHECK] PASS: Your dataset is clean with no null values.")
-    print("\n--- Data Validation Complete ---")
-
+    print("--- Data Validation Complete ---")
 
 def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
-    """
-    Connects to the SQL database, runs a query to get swipe data,
-    and engineers features to prepare data for the model.
-    (This function is unchanged)
-    """
     print(f"\n--- Connecting to Database '{DB_NAME}' ---")
     try:
         connection_string = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -77,7 +56,6 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
         print(f"  Error: Could not connect to the database. Details: {e}")
         return None, None
 
-    # Inspect available columns to avoid referencing missing ones (e.g., entity_id)
     inspector = inspect(engine)
     try:
         swipe_cols = [c['name'] for c in inspector.get_columns(SWIPES_TABLE)]
@@ -88,7 +66,6 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
     except Exception:
         profile_cols = []
 
-    # Log detected schema
     print(f"  Detected columns in {SWIPES_TABLE}: {swipe_cols}")
     print(f"  Detected columns in {PROFILES_TABLE}: {profile_cols}")
 
@@ -97,13 +74,11 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
         select_fields.append(f"cs.{SWIPES_CARD_COL} AS card_id")
     if SWIPES_ENTITY_COL in swipe_cols:
         select_fields.append(f"cs.{SWIPES_ENTITY_COL} AS entity_id")
-    # include profile fields if available
     if 'role' in profile_cols:
         select_fields.append("p.role")
     if 'department' in profile_cols:
         select_fields.append("p.department")
 
-    # Build JOIN conditions depending on available columns
     join_conds = []
     if (SWIPES_ENTITY_COL in swipe_cols) and (PROFILES_ENTITY_COL in profile_cols):
         join_conds.append(f"(cs.{SWIPES_ENTITY_COL} = p.{PROFILES_ENTITY_COL})")
@@ -120,23 +95,16 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
         LEFT JOIN
             {PROFILES_TABLE} p
             ON ({join_sql})
-        ;
         """
     else:
-        # No join possible; just select available swipe fields
         sql_query = f"""
         SELECT
             {',\n            '.join(select_fields)}
         FROM
             {SWIPES_TABLE} cs
-        ;
         """
-    # Show the final SQL to help debugging/verification
-    print("  SQL query to be executed:")
-    print(sql_query)
-    
+
     print("  Executing SQL query to fetch data...")
-    # Get total rows in the swipes table for verification
     try:
         count_sql = f"SELECT COUNT(*) as cnt FROM {SWIPES_TABLE}"
         with engine.connect() as conn:
@@ -149,15 +117,11 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
     if total_rows is not None:
         print(f"  Total rows in '{SWIPES_TABLE}' according to DB: {total_rows}")
 
-    # If the joined query returned fewer rows than the swipes table,
-    # fall back to loading the full swipes table and merging profiles in pandas
-    # so we preserve all rows for training.
     if total_rows is not None and len(df) < total_rows:
         print("  Warning: joined query returned fewer rows than the swipes table. Falling back to full-table load + pandas merge to preserve all rows.")
         try:
             swipes_full = pd.read_sql(f"SELECT * FROM {SWIPES_TABLE}", engine)
 
-            # Determine which profile columns exist and load them
             prof_needed = [c for c in [PROFILES_ENTITY_COL, PROFILES_CARD_COL, 'role', 'department'] if c in profile_cols]
             if prof_needed:
                 profiles_sql = f"SELECT {', '.join(prof_needed)} FROM {PROFILES_TABLE}"
@@ -167,17 +131,13 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
 
             df = swipes_full.copy()
 
-            # Merge on entity_id if possible
             merged = False
             if (SWIPES_ENTITY_COL in df.columns) and (PROFILES_ENTITY_COL in profiles_df.columns):
                 df = df.merge(profiles_df, left_on=SWIPES_ENTITY_COL, right_on=PROFILES_ENTITY_COL, how='left')
                 merged = True
 
-            # For rows still missing profile info, try merge on card_id
             if (SWIPES_CARD_COL in df.columns) and (PROFILES_CARD_COL in profiles_df.columns):
-                # If we already merged on entity, do a card-based merge to get card-based columns suffixed
                 temp = swipes_full.merge(profiles_df, left_on=SWIPES_CARD_COL, right_on=PROFILES_CARD_COL, how='left', suffixes=('', '_card'))
-                # Fill missing role/department from card-based merge
                 for col in ['role', 'department']:
                     card_col = col + '_card'
                     if card_col in temp.columns:
@@ -206,9 +166,8 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
     df['is_weekend'] = (df[feature_column].dt.weekday >= 5).astype(int)
 
     y = df[target_column]
-    # drop timestamp and target; card_id may or may not exist depending on the schema
     X = df.drop(columns=[target_column, feature_column, 'card_id'], errors='ignore')
-    # Ensure role/department present for encoding; fill missing with 'unknown' so rows aren't lost
+    
     for col in ['role', 'department']:
         if col not in X.columns:
             X[col] = 'unknown'
@@ -221,6 +180,7 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
     print("  Successfully created features from time and profile data.")
     print(f"  Final features for model: {X.columns.tolist()}")
     print(f"  Feature matrix shape: {X.shape}; Target vector length: {len(y)}")
+    
     try:
         print(f"  Target class distribution:\n{y.value_counts(dropna=False).to_string()}")
     except Exception:
@@ -229,12 +189,9 @@ def load_and_prepare_data(target_column: str, feature_column: str) -> tuple:
     return X, y
 
 def train_save_and_evaluate_model(X: pd.DataFrame, y: pd.Series):
-    """
-    MODIFIED: Splits data, trains a model, evaluates it, AND SAVES IT.
-    """
     print("\n--- Splitting Data (80% Train, 20% Test) with stratify ---")
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    # Verification logs to confirm full data usage
+    
     try:
         print(f"  Total feature rows: {X.shape[0]}")
         print(f"  Total target rows: {len(y)}")
@@ -244,7 +201,6 @@ def train_save_and_evaluate_model(X: pd.DataFrame, y: pd.Series):
     except Exception:
         pass
 
-    # --- Baseline and Hyperparameter tuning (unchanged) ---
     print("\n--- Baseline: Dummy (most frequent) ---")
     dummy = DummyClassifier(strategy='most_frequent')
     dummy.fit(X_train, y_train)
@@ -265,7 +221,6 @@ def train_save_and_evaluate_model(X: pd.DataFrame, y: pd.Series):
     f1 = f1_score(y_test, predictions, average='macro')
     print(f"  Best model Macro F1 on the test set is: {f1:.4f}")
 
-    # --- NEW: Save the trained model and feature columns ---
     print("\n--- Saving Model and Feature Columns ---")
     joblib.dump(best, MODEL_PATH)
     with open(COLUMNS_PATH, 'w') as f:
@@ -273,18 +228,7 @@ def train_save_and_evaluate_model(X: pd.DataFrame, y: pd.Series):
     print(f"  Model saved to: {MODEL_PATH}")
     print(f"  Feature columns saved to: {COLUMNS_PATH}")
 
-# (explain_predictions function is unchanged)
-def explain_predictions(model: RandomForestClassifier, X_test: pd.DataFrame):
-    # ... This function remains exactly the same ...
-    pass
-
-
-# --- NEW: Functions for Prediction Mode ---
-
 def load_model_and_artifacts() -> tuple:
-    """
-    Loads the saved model and the list of feature columns.
-    """
     if not MODEL_PATH.exists() or not COLUMNS_PATH.exists():
         print(" Error: Model or column file not found.")
         print("Please run the script in 'train' mode first to create these files.")
@@ -299,16 +243,10 @@ def load_model_and_artifacts() -> tuple:
         
     return model, model_columns
 
-
 def get_profile_by_card_id(card_id: str):
-    """
-    Query the `entities` table for a given card_id and return (role, department).
-    Returns (None, None) if not found or on error.
-    """
     try:
         connection_string = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         engine = create_engine(connection_string)
-        # entities table holds the mapping between card_id and profile fields
         sql = "SELECT role, department FROM entities WHERE card_id = :card_id LIMIT 1"
         with engine.connect() as conn:
             result = conn.execute(text(sql), {"card_id": card_id}).fetchone()
@@ -319,21 +257,14 @@ def get_profile_by_card_id(card_id: str):
 
     return None, None
 
-
 def get_profile_by_entity_id(entity_id: str):
-    """
-    Query the `entities` table for a given entity_id and return (role, department, card_id).
-    Returns (None, None, None) if not found or on error.
-    """
     try:
         connection_string = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         engine = create_engine(connection_string)
-        # entities table contains entity_id, card_id, role, department
         sql = "SELECT role, department, card_id FROM entities WHERE entity_id = :entity_id LIMIT 1"
         with engine.connect() as conn:
             result = conn.execute(text(sql), {"entity_id": entity_id}).fetchone()
         if result:
-            # return role, department, card_id
             return result[0], result[1], result[2]
     except Exception as e:
         print(f"  Error fetching profile for entity_id={entity_id}: {e}")
@@ -341,12 +272,8 @@ def get_profile_by_entity_id(entity_id: str):
     return None, None, None
 
 def predict_for_time_range(model, model_columns, start_time_str, end_time_str, role, department):
-    """
-    Predicts the most likely location for a given time range and profile.
-    """
     try:
-        # Generate timestamps for every hour in the user's date range
-        time_range = pd.date_range(start=start_time_str, end=end_time_str, freq='h')  # Changed 'H' to 'h'
+        time_range = pd.date_range(start=start_time_str, end=end_time_str, freq='h')
         if time_range.empty:
             print(" Error: The start time must be before the end time.")
             return
@@ -372,23 +299,18 @@ def predict_for_time_range(model, model_columns, start_time_str, end_time_str, r
         }
         prediction_data.append(feature_dict)
 
-    # Create DataFrame and align columns
     df_predict = pd.DataFrame(prediction_data)
     df_aligned = pd.DataFrame(columns=model_columns)
     df_aligned = pd.concat([df_aligned, df_predict], ignore_index=True, sort=False)
     
-    # Fill NaN values without downcasting warning
     for col in df_aligned.columns:
         if df_aligned[col].isna().any():
             df_aligned[col] = df_aligned[col].fillna(0)
     
-    # Ensure the column order is exactly the same as during training
     df_aligned = df_aligned[model_columns]
 
-    # Make predictions
     predictions = model.predict(df_aligned)
     
-    # Summarize the results
     location_counts = pd.Series(predictions).value_counts(normalize=True)
     
     print("\n--- Prediction Results ---")
@@ -404,16 +326,11 @@ def predict_for_time_range(model, model_columns, start_time_str, end_time_str, r
     
     return most_likely_location, likelihood, dict(location_counts.items())
 
-# --- 4. Run the Main Project Pipeline ---------------------------------------
 if __name__ == "__main__":
     
     print("--- Location Prediction Model ---")
     
-    # Check if command line arguments are provided for prediction
     if len(sys.argv) > 1 and sys.argv[1] == "predict":
-        # Command line mode for PHP
-        # Supported usage:
-        # python data_with_input.py predict 'start_time' 'end_time' 'entity_id_or_card_id'
         if len(sys.argv) != 5:
             print("ERROR: Usage: python data_with_input.py predict 'start_time' 'end_time' 'entity_id_or_card_id'")
             sys.exit(1)
@@ -422,7 +339,6 @@ if __name__ == "__main__":
         end_time = sys.argv[3]
         identifier = sys.argv[4]
 
-        # Try entity_id lookup first, then card_id lookup. Role/department must come from the profile.
         fetched_role, fetched_department, fetched_card = get_profile_by_entity_id(identifier)
         if fetched_role and fetched_department:
             role = fetched_role
@@ -443,7 +359,6 @@ if __name__ == "__main__":
             result = predict_for_time_range(model, columns, start_time, end_time, role, department)
             if result:
                 most_likely, confidence, breakdown = result
-                # Output in JSON format for PHP to parse
                 output = {
                     "most_likely_location": most_likely,
                     "confidence": confidence,
@@ -455,10 +370,8 @@ if __name__ == "__main__":
                 print(json.dumps({"status": "error", "message": "Prediction failed"}))
     
     else:
-        # Original interactive mode
         mode = input("Choose mode: (1) Train Model or (2) Predict Location? [1/2]: ")
 
-        # --- TRAINING MODE ---
         if mode == '1':
             print("\n--- Starting Model Training ---")
             features, target = load_and_prepare_data(target_column=TARGET_COLUMN, feature_column=FEATURE_COLUMN)
@@ -467,7 +380,6 @@ if __name__ == "__main__":
                 train_save_and_evaluate_model(X=features, y=target)
                 print("\n--- Training Pipeline Complete! ---")
         
-        # --- PREDICTION MODE ---
         elif mode == '2':
             print("\n--- Starting Location Prediction ---")
             model, columns = load_model_and_artifacts()
@@ -478,7 +390,6 @@ if __name__ == "__main__":
                 start = input("Enter start time (YYYY-MM-DD HH:MM): ")
                 end = input("Enter end time (YYYY-MM-DD HH:MM): ")
 
-                # Ask for required entity_id or card_id (no manual role/department input)
                 identifier = input("Enter entity_id or card_id (required): ").strip()
                 if not identifier:
                     print("Identifier is required for prediction. Aborting.")

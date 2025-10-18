@@ -14,17 +14,15 @@ class DataImporter {
             return null;
         }
         
-        // Remove any extra spaces or special characters
         $dateString = trim($dateString);
         
-        // Try different date formats
         $formats = [
-            'd-m-Y H:i',    // 27-08-2025 06:57
-            'm/d/Y H:i',     // 8/30/2025 16:50
-            'd-m-Y H:i:s',   // With seconds
-            'm/d/Y H:i:s',   // With seconds
-            'Y-m-d H:i:s',   // SQL format
-            'Y-m-d H:i',     // SQL format without seconds
+            'd-m-Y H:i',
+            'm/d/Y H:i', 
+            'd-m-Y H:i:s',
+            'm/d/Y H:i:s',
+            'Y-m-d H:i:s',
+            'Y-m-d H:i',
         ];
         
         foreach ($formats as $format) {
@@ -34,18 +32,14 @@ class DataImporter {
             }
         }
         
-        // If all formats fail, try to detect the format
         if (strpos($dateString, '-') !== false && strpos($dateString, '/') === false) {
-            // Likely DD-MM-YYYY format
             $date = DateTime::createFromFormat('d-m-Y H:i', $dateString);
             if ($date !== false) return $date;
         } elseif (strpos($dateString, '/') !== false) {
-            // Likely MM/DD/YYYY format
             $date = DateTime::createFromFormat('m/d/Y H:i', $dateString);
             if ($date !== false) return $date;
         }
         
-        // Log the problematic date for debugging
         error_log("Failed to parse date: " . $dateString);
         return null;
     }
@@ -76,7 +70,7 @@ class DataImporter {
         }
 
         $header = fgetcsv($handle);
-        echo "Entities header: " . implode(', ', $header) . "<br>";
+        echo "Importing entities...<br>";
         
         $count = 0;
         $batch = [];
@@ -100,7 +94,6 @@ class DataImporter {
             }
         }
         
-        // Insert remaining records
         if (count($batch) > 0) {
             $this->insertEntitiesBatch($batch);
             $count += count($batch);
@@ -140,27 +133,20 @@ class DataImporter {
             return;
         }
 
-        $header = fgetcsv($handle);
-        echo "Card swipes header: " . implode(', ', $header) . "<br>";
+        fgetcsv($handle);
+        echo "Importing card swipes...<br>";
         
         $count = 0;
         $batch = [];
         $batchSize = 1000;
-        $sampleRow = null;
         
         while ($row = fgetcsv($handle)) {
             if (count($row) < 3) {
                 continue;
             }
             
-            if ($sampleRow === null) {
-                $sampleRow = $row;
-                echo "Sample card swipe row: " . implode(', ', $row) . "<br>";
-            }
-            
             $date = $this->parseDate($row[2]);
             if (!$date) {
-                echo "Failed to parse date for card swipe: '{$row[2]}'<br>";
                 continue;
             }
             
@@ -175,7 +161,6 @@ class DataImporter {
             }
         }
         
-        // Insert remaining records
         if (count($batch) > 0) {
             $this->insertCardSwipesBatch($batch);
             $count += count($batch);
@@ -214,8 +199,8 @@ class DataImporter {
             return;
         }
 
-        $header = fgetcsv($handle);
-        echo "WiFi logs header: " . implode(', ', $header) . "<br>";
+        fgetcsv($handle);
+        echo "Importing WiFi logs...<br>";
         
         $count = 0;
         $batch = [];
@@ -228,7 +213,6 @@ class DataImporter {
             
             $date = $this->parseDate($row[2]);
             if (!$date) {
-                echo "Failed to parse date for WiFi log: '{$row[2]}'<br>";
                 continue;
             }
             
@@ -281,27 +265,20 @@ class DataImporter {
             return;
         }
 
-        $header = fgetcsv($handle);
-        echo "Library checkouts header: " . implode(', ', $header) . "<br>";
+        fgetcsv($handle);
+        echo "Importing library checkouts...<br>";
         
         $count = 0;
         $batch = [];
         $batchSize = 1000;
-        $sampleRow = null;
         
         while ($row = fgetcsv($handle)) {
             if (count($row) < 4 || empty($row[0]) || trim($row[0]) === '') {
                 continue;
             }
             
-            if ($sampleRow === null) {
-                $sampleRow = $row;
-                echo "Sample library checkout row: " . implode(', ', $row) . "<br>";
-            }
-            
             $date = $this->parseDate($row[3]);
             if (!$date) {
-                echo "Failed to parse date for library checkout: '{$row[3]}'<br>";
                 continue;
             }
             
@@ -354,8 +331,8 @@ class DataImporter {
             return;
         }
 
-        $header = fgetcsv($handle);
-        echo "Lab bookings header: " . implode(', ', $header) . "<br>";
+        fgetcsv($handle);
+        echo "Importing lab bookings...<br>";
         
         $count = 0;
         $batch = [];
@@ -369,7 +346,6 @@ class DataImporter {
             $startDate = $this->parseDate($row[3]);
             $endDate = $this->parseDate($row[4]);
             if (!$startDate || !$endDate) {
-                echo "Failed to parse dates for lab booking. Start: '{$row[3]}', End: '{$row[4]}'<br>";
                 continue;
             }
             
@@ -425,27 +401,20 @@ class DataImporter {
             return;
         }
 
-        $header = fgetcsv($handle);
-        echo "Free text notes header: " . implode(', ', $header) . "<br>";
+        fgetcsv($handle);
+        echo "Importing free text notes...<br>";
         
         $count = 0;
         $batch = [];
         $batchSize = 1000;
-        $sampleRow = null;
         
         while ($row = fgetcsv($handle)) {
             if (count($row) < 5) {
                 continue;
             }
             
-            if ($sampleRow === null) {
-                $sampleRow = $row;
-                echo "Sample free text note row: " . implode(', ', $row) . "<br>";
-            }
-            
             $date = $this->parseDate($row[4]);
             if (!$date) {
-                echo "Failed to parse date for free text note: '{$row[4]}'<br>";
                 continue;
             }
             
@@ -498,8 +467,8 @@ class DataImporter {
             return;
         }
 
-        $header = fgetcsv($handle);
-        echo "CCTV frames header: " . implode(', ', $header) . "<br>";
+        fgetcsv($handle);
+        echo "Importing CCTV frames...<br>";
         
         $count = 0;
         $batch = [];
@@ -512,7 +481,6 @@ class DataImporter {
             
             $date = $this->parseDate($row[2]);
             if (!$date) {
-                echo "Failed to parse date for CCTV frame: '{$row[2]}'<br>";
                 continue;
             }
             
@@ -553,7 +521,6 @@ class DataImporter {
     }
 }
 
-// Run import
 $importer = new DataImporter();
 $importer->importAllData();
 ?>

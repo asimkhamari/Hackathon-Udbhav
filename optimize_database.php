@@ -5,7 +5,6 @@ $database = new Database();
 $conn = $database->getConnection();
 
 try {
-    // Add performance indexes
     $indexes = [
         "ALTER TABLE entities ADD INDEX idx_entity_role (role)",
         "ALTER TABLE entities ADD INDEX idx_entity_department (department)",

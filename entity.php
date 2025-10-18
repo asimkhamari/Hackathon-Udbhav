@@ -18,7 +18,6 @@ $timeline = $entity->getTimeline(50);
 $lastSeen = $entity->getLastSeen();
 $isInactive = $entity->isInactive(12);
 
-// Check if user image exists
 $userImage = null;
 if ($entity->face_id) {
     $imagePath = "data/face_images/{$entity->face_id}.jpg";
@@ -27,22 +26,18 @@ if ($entity->face_id) {
     }
 }
 
-// Fallback to default image if no user image found
 if (!$userImage) {
     $userImage = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgdmlld0JveD0iMCAwIDEyOCAxMjgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjgiIGhlaWdodD0iMTI4IiByeD0iMTYiIGZpbGw9IiNFRUVFRUUiLz4KPHBhdGggZD0iTTY0IDY0QzcwLjYyNzQgNjQgNzYgNTguNjI3NCA3NiA1MkM3NiA0NS4zNzI2IDcwLjYyNzQgNDAgNjQgNDBDNTcuMzcyNiA0MCA1MiA0NS4zNzI2IDUyIDUyQzUyIDU4LjYyNzQgNTcuMzcyNiA2NCA2NCA2NFoiIGZpbGw9IiM5QTlBOUEiLz4KPHBhdGggZD0iTTY0IDcwQzcyLjgzNjYgNzAgODAgNzcuMTYzNCA4MCA4NlY4OEM4MCA5MC4yMDkyIDc4LjIwOTIgOTIgNzYgOTJINTJDNDkuNzkwOSA5MiA0OCA5MC4yMDkyIDQ4IDg4Vjg2QzQ4IDc3LjE2MzQgNTUuMTYzNCA3MCA2NCA3MFoiIGZpbGw9IiM5QTlBOUEiLz4KPC9zdmc+Cg==";
 }
 
-// PREDICTION INTEGRATION
 $prediction = null;
 $predictionError = null;
 
 if ($lastSeen) {
-    // Use last seen time as start time and current time as end time
     $start_time = $lastSeen['timestamp'];
     $end_time = date('Y-m-d H:i:s');
     $entity_id_for_prediction = $entity->entity_id;
     
-    // Call the prediction function
     function run_prediction($start_time, $end_time, $entity_id) {
         $python_script = __DIR__ . '/data_with_input.py';
         $command = 'python "' . $python_script . '" predict "' . $start_time . '" "' . $end_time . '" "' . $entity_id . '"';
@@ -52,7 +47,6 @@ if ($lastSeen) {
     
     $python_output = run_prediction($start_time, $end_time, $entity_id_for_prediction);
     
-    // Parse the JSON output from Python
     $json_pattern = '/\{"most_likely_location".*?"status".*?\}$/';
     preg_match($json_pattern, $python_output, $matches);
     
@@ -68,11 +62,9 @@ if ($lastSeen) {
     }
 }
 
-$breakdown = $prediction['breakdown'];
-arsort($breakdown); // Sort by percentage in descending order
-$top_locations = array_slice($breakdown, 0, 3, true); // Get top 3 locations
-
-$counter = 0;
+$breakdown = $prediction['breakdown'] ?? [];
+arsort($breakdown);
+$top_locations = array_slice($breakdown, 0, 3, true);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -85,7 +77,6 @@ $counter = 0;
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center space-x-4">
                 <div class="flex-shrink-0">
@@ -104,7 +95,6 @@ $counter = 0;
             </a>
         </div>
 
-        <!-- Alert Banner -->
         <?php if($isInactive): ?>
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
             <div class="flex items-center">
@@ -116,10 +106,8 @@ $counter = 0;
         <?php endif; ?>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Entity Info -->
             <div class="lg:col-span-1">
                 <div class="bg-white rounded-lg shadow-md p-6">
-                    <!-- Large User Image -->
                     <div class="flex justify-center mb-6">
                         <div class="relative">
                             <img class="h-32 w-32 rounded-full object-cover border-4 
@@ -194,7 +182,6 @@ $counter = 0;
                         <?php endif; ?>
                     </div>
 
-                    <!-- Image Status -->
                     <div class="mt-6 p-3 bg-gray-50 rounded-lg">
                         <p class="text-sm text-gray-600 flex items-center">
                             <i class="fas fa-image mr-2"></i>
@@ -209,7 +196,6 @@ $counter = 0;
                     </div>
                 </div>
 
-                <!-- Last Seen -->
                 <?php if($lastSeen): ?>
                 <div class="bg-white rounded-lg shadow-md p-6 mt-6">
                     <h2 class="text-xl font-bold text-gray-800 mb-4">Last Seen</h2>
@@ -223,9 +209,7 @@ $counter = 0;
                 <?php endif; ?>
             </div>
 
-            <!-- Right Column - Timeline and Prediction -->
             <div class="lg:col-span-2">
-                <!-- PREDICTION SECTION -->
                 <?php if($lastSeen): ?>
                 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                     <h2 class="text-xl font-bold text-gray-800 mb-4">
@@ -289,7 +273,6 @@ $counter = 0;
                 </div>
                 <?php endif; ?>
 
-                <!-- Timeline -->
                 <div class="bg-white rounded-lg shadow-md p-6">
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="text-xl font-bold text-gray-800">Activity Timeline</h2>
@@ -336,7 +319,6 @@ $counter = 0;
     </div>
 
     <script>
-        // Function to handle image loading errors
         document.addEventListener('DOMContentLoaded', function() {
             const profileImage = document.querySelector('img[alt="<?= htmlspecialchars($entity->name) ?>"]');
             if (profileImage) {
